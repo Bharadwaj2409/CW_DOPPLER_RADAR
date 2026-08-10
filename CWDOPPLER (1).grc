@@ -1,0 +1,621 @@
+options:
+  parameters:
+    author: shreya
+    catch_exceptions: 'True'
+    category: '[GRC Hier Blocks]'
+    cmake_opt: ''
+    comment: ''
+    copyright: ''
+    description: ''
+    gen_cmake: 'On'
+    gen_linking: dynamic
+    generate_options: qt_gui
+    hier_block_src_path: '.:'
+    id: test
+    max_nouts: '0'
+    output_language: python
+    placement: (0,0)
+    qt_qss_theme: ''
+    realtime_scheduling: ''
+    run: 'True'
+    run_command: '{python} -u {filename}'
+    run_options: prompt
+    sizing_mode: fixed
+    thread_safe_setters: ''
+    title: CWRADAR
+    window_size: (1000,1000)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [8, 8]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: audio_gain
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: ''
+    label: ''
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: '0'
+    step: '0.1'
+    stop: '10'
+    value: '1'
+    widget: counter_slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [624, 20.0]
+    rotation: 0
+    state: true
+- name: decimation
+  id: variable
+  parameters:
+    comment: ''
+    value: '50'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [288, 20.0]
+    rotation: 0
+    state: enabled
+- name: reject_fractional_bandwidth
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: ''
+    label: ''
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: '0'
+    step: '0.001'
+    stop: '0.200'
+    value: '0.010'
+    widget: slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [128, 100.0]
+    rotation: 0
+    state: true
+- name: rx_gain
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: ''
+    label: ''
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: '0'
+    step: '1'
+    stop: '100'
+    value: '64'
+    widget: counter_slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [8, 100.0]
+    rotation: 0
+    state: true
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: '2400000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [184, 20.0]
+    rotation: 0
+    state: enabled
+- name: tone
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: ''
+    label: ''
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: '-2000'
+    step: '1'
+    stop: '2000'
+    value: '500'
+    widget: counter_slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [384, 20.0]
+    rotation: 0
+    state: true
+- name: tx_attenuation
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: ''
+    label: ''
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: '0'
+    step: '1'
+    stop: '100'
+    value: '10'
+    widget: counter_slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [504, 20.0]
+    rotation: 0
+    state: true
+- name: analog_sig_source_x_0
+  id: analog_sig_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    amp: '1'
+    comment: ''
+    freq: tone
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    offset: '0'
+    phase: '0'
+    samp_rate: samp_rate
+    type: complex
+    waveform: analog.GR_COS_WAVE
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [760, 20.0]
+    rotation: 0
+    state: true
+- name: audio_sink_0
+  id: audio_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    device_name: ''
+    num_inputs: '1'
+    ok_to_block: 'True'
+    samp_rate: '48000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1112, 452.0]
+    rotation: 0
+    state: true
+- name: band_reject_filter_0
+  id: band_reject_filter
+  parameters:
+    affinity: ''
+    alias: ''
+    beta: '6.76'
+    comment: ''
+    decim: '1'
+    gain: '1'
+    high_cutoff_freq: tone*(1+reject_fractional_bandwidth)
+    interp: '1'
+    low_cutoff_freq: tone*(1-reject_fractional_bandwidth)
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_rate: samp_rate/decimation
+    type: fir_filter_ccf
+    width: tone*reject_fractional_bandwidth
+    win: window.WIN_HAMMING
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [520, 172.0]
+    rotation: 0
+    state: enabled
+- name: blocks_complex_to_real_0
+  id: blocks_complex_to_real
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [936, 456.0]
+    rotation: 0
+    state: true
+- name: blocks_multiply_const_vxx_0
+  id: blocks_multiply_const_vxx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    const: audio_gain
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [768, 452.0]
+    rotation: 0
+    state: true
+- name: blocks_null_sink_0
+  id: blocks_null_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    bus_structure_sink: '[[0,],]'
+    comment: ''
+    num_inputs: '1'
+    type: float
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1096, 312.0]
+    rotation: 0
+    state: disabled
+- name: blocks_null_sink_1
+  id: blocks_null_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    bus_structure_sink: '[[0,],]'
+    comment: ''
+    num_inputs: '1'
+    type: float
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1088, 360.0]
+    rotation: 0
+    state: disabled
+- name: epy_block_0
+  id: epy_block
+  parameters:
+    _source_code: "import numpy as np\nfrom gnuradio import gr\nimport time\nimport\
+      \ socket\nimport struct\n\n\nclass doppler_velocity(gr.sync_block):\n    \"\"\
+      \"\n    Doppler Velocity Estimator with direct UDP output.\n    Sends [doppler,\
+      \ velocity, dBFS] as a 12-byte UDP packet\n    directly, bypassing UDP Sink\
+      \ entirely.\n    \"\"\"\n\n    def __init__(self,\n                 samp_rate=48000,\n\
+      \                 fft_size=8192,\n                 center_freq_hz=5.5e9,\n \
+      \                print_every_n=5,\n                 noise_thresh_db=10.0,\n\
+      \                 tone_offset_hz=500.0,\n                 max_velocity_mps=10.0,\n\
+      \                 udp_ip=\"127.0.0.1\",\n                 udp_port=5005):\n\n\
+      \        gr.sync_block.__init__(\n            self,\n            name=\"doppler_velocity\"\
+      ,\n            in_sig=[np.complex64],\n            out_sig=None   # no stream\
+      \ output needed anymore\n        )\n\n        self.samp_rate = samp_rate\n \
+      \       self.fft_size = fft_size\n\n        self.c = 3e8\n        self.wavelength\
+      \ = self.c / center_freq_hz\n\n        self.threshold = noise_thresh_db\n  \
+      \      self.print_every_n = print_every_n\n        self.tone_offset = tone_offset_hz\n\
+      \        self.max_velocity = max_velocity_mps\n\n        self.bin_resolution\
+      \ = self.samp_rate / self.fft_size\n\n        self.window = np.hanning(self.fft_size)\n\
+      \n        self.buffer = np.zeros(self.fft_size, dtype=np.complex64)\n\n    \
+      \    self.buf_idx = 0\n        self.call_count = 0\n\n        self.last_doppler\
+      \ = 0.0\n        self.last_velocity = 0.0\n        self.last_dbfs = -120.0\n\
+      \n        self.last_print = time.time()\n\n        # --- UDP setup ---\n   \
+      \     self.udp_ip = udp_ip\n        self.udp_port = udp_port\n        self.sock\
+      \ = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\n\n    def work(self, input_items,\
+      \ output_items):\n\n        samples = input_items[0]\n\n        rms = np.sqrt(np.mean(np.abs(samples)**2))\n\
+      \        dbfs = 20 * np.log10(rms + 1e-12)\n        self.last_dbfs = dbfs\n\n\
+      \        for sample in samples:\n            self.buffer[self.buf_idx] = sample\n\
+      \            self.buf_idx += 1\n\n            if self.buf_idx >= self.fft_size:\n\
+      \                self.process_block(self.buffer)\n                self.buf_idx\
+      \ = 0\n\n        # Send one UDP packet per work() call\n        packet = struct.pack(\"\
+      <fff\",\n                              self.last_doppler,\n                \
+      \              self.last_velocity,\n                              self.last_dbfs)\n\
+      \        try:\n            self.sock.sendto(packet, (self.udp_ip, self.udp_port))\n\
+      \        except OSError as e:\n            print(f\"UDP send failed: {e}\")\n\
+      \n        if time.time() - self.last_print >= 1:\n            print(\n     \
+      \           f\"Signal Level = {self.last_dbfs:.2f} dBFS | \"\n             \
+      \   f\"Doppler = {self.last_doppler:.2f} Hz | \"\n                f\"Velocity\
+      \ = {self.last_velocity:.3f} m/s\"\n            )\n            self.last_print\
+      \ = time.time()\n\n        return len(samples)\n\n    def process_block(self,\
+      \ block):\n        spectrum = np.fft.fftshift(np.fft.fft(block * self.window))\n\
+      \        magnitude = np.abs(spectrum)\n        mag_db = 20 * np.log10(magnitude\
+      \ + 1e-12)\n        center = self.fft_size // 2\n\n        max_doppler_hz =\
+      \ 2 * self.max_velocity / self.wavelength\n        max_doppler_bins = int(np.ceil(max_doppler_hz\
+      \ / self.bin_resolution))\n        tone_bin = center + int(round(self.tone_offset\
+      \ / self.bin_resolution))\n        lo = max(0, tone_bin - max_doppler_bins)\n\
+      \        hi = min(self.fft_size, tone_bin + max_doppler_bins + 1)\n\n      \
+      \  search_region = mag_db[lo:hi]\n        noise_floor = np.median(mag_db)\n\
+      \        local_peak = np.argmax(search_region)\n        peak_bin = lo + local_peak\n\
+      \        peak_db = mag_db[peak_bin]\n\n        if (peak_db - noise_floor) <\
+      \ self.threshold:\n            return\n\n        peak = float(peak_bin)\n  \
+      \      if 1 <= peak_bin < self.fft_size - 1:\n            a = mag_db[peak_bin\
+      \ - 1]\n            b = mag_db[peak_bin]\n            c = mag_db[peak_bin +\
+      \ 1]\n            denom = a - 2 * b + c\n            if abs(denom) > 1e-12:\n\
+      \                peak += 0.5 * (a - c) / denom\n\n        raw_freq = (peak -\
+      \ center) * self.bin_resolution\n        doppler_freq = raw_freq - self.tone_offset\n\
+      \        velocity = doppler_freq * self.wavelength / 2.0\n\n        self.last_doppler\
+      \ = doppler_freq\n        self.last_velocity = velocity\n        self.call_count\
+      \ += 1\n"
+    affinity: ''
+    alias: ''
+    center_freq_hz: 5.5e9
+    comment: ''
+    fft_size: '8192'
+    max_velocity_mps: '5'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    noise_thresh_db: '16'
+    print_every_n: '5'
+    samp_rate: '48000'
+    tone_offset_hz: tone
+    udp_ip: '''192.168.0.127'''
+    udp_port: '5005'
+  states:
+    _io_cache: ('doppler_velocity', 'doppler_velocity', [('samp_rate', '48000'), ('fft_size',
+      '8192'), ('center_freq_hz', '5500000000.0'), ('print_every_n', '5'), ('noise_thresh_db',
+      '10.0'), ('tone_offset_hz', '500.0'), ('max_velocity_mps', '10.0'), ('udp_ip',
+      "'127.0.0.1'"), ('udp_port', '5005')], [('0', 'complex', 1)], [], '\n    Doppler
+      Velocity Estimator with direct UDP output.\n    Sends [doppler, velocity, dBFS]
+      as a 12-byte UDP packet\n    directly, bypassing UDP Sink entirely.\n    ',
+      ['fft_size', 'print_every_n', 'samp_rate', 'udp_ip', 'udp_port'])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [984, 172.0]
+    rotation: 0
+    state: true
+- name: iio_pluto_sink_0
+  id: iio_pluto_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    attenuation1: tx_attenuation
+    bandwidth: '20000000'
+    buffer_size: '32768'
+    comment: ''
+    cyclic: 'False'
+    filter: ''
+    filter_source: '''Auto'''
+    fpass: '0'
+    frequency: '5500000000'
+    fstop: '0'
+    len_tag_key: ''
+    samplerate: samp_rate
+    type: fc32
+    uri: 192.168.3.1
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1008, 4.0]
+    rotation: 0
+    state: true
+- name: iio_pluto_source_0
+  id: iio_pluto_source
+  parameters:
+    affinity: ''
+    alias: ''
+    bandwidth: '20000000'
+    bbdc: 'True'
+    buffer_size: '32768'
+    comment: ''
+    filter: ''
+    filter_source: '''Auto'''
+    fpass: '0'
+    frequency: '5500000000'
+    fstop: '0'
+    gain1: '''manual'''
+    len_tag_key: packet_len
+    manual_gain1: rx_gain
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    quadrature: 'True'
+    rfdc: 'True'
+    samplerate: samp_rate
+    type: fc32
+    uri: 192.168.3.1
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [24, 228.0]
+    rotation: 0
+    state: true
+- name: low_pass_filter_0
+  id: low_pass_filter
+  parameters:
+    affinity: ''
+    alias: ''
+    beta: '6.76'
+    comment: ''
+    cutoff_freq: tone*2
+    decim: decimation
+    gain: '1'
+    interp: '1'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_rate: samp_rate
+    type: fir_filter_ccf
+    width: tone/2
+    win: window.WIN_HAMMING
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [304, 180.0]
+    rotation: 0
+    state: true
+- name: qtgui_freq_sink_x_0
+  id: qtgui_freq_sink_x
+  parameters:
+    affinity: ''
+    alias: ''
+    alpha1: '1.0'
+    alpha10: '1.0'
+    alpha2: '1.0'
+    alpha3: '1.0'
+    alpha4: '1.0'
+    alpha5: '1.0'
+    alpha6: '1.0'
+    alpha7: '1.0'
+    alpha8: '1.0'
+    alpha9: '1.0'
+    autoscale: 'False'
+    average: '1.0'
+    axislabels: 'True'
+    bw: 48e3
+    color1: '"blue"'
+    color10: '"dark blue"'
+    color2: '"red"'
+    color3: '"green"'
+    color4: '"black"'
+    color5: '"cyan"'
+    color6: '"magenta"'
+    color7: '"yellow"'
+    color8: '"dark red"'
+    color9: '"dark green"'
+    comment: ''
+    ctrlpanel: 'False'
+    fc: '0'
+    fftsize: '8192'
+    freqhalf: 'True'
+    grid: 'False'
+    gui_hint: ''
+    label: Relative Gain
+    label1: ''
+    label10: ''''''
+    label2: ''''''
+    label3: ''''''
+    label4: ''''''
+    label5: ''''''
+    label6: ''''''
+    label7: ''''''
+    label8: ''''''
+    label9: ''''''
+    legend: 'True'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    name: '""'
+    nconnections: '1'
+    norm_window: 'False'
+    showports: 'False'
+    tr_chan: '0'
+    tr_level: '0.0'
+    tr_mode: qtgui.TRIG_MODE_FREE
+    tr_tag: '""'
+    type: complex
+    units: dB
+    update_time: '0.10'
+    width1: '1'
+    width10: '1'
+    width2: '1'
+    width3: '1'
+    width4: '1'
+    width5: '1'
+    width6: '1'
+    width7: '1'
+    width8: '1'
+    width9: '1'
+    wintype: window.WIN_BLACKMAN_hARRIS
+    ymax: '10'
+    ymin: '-140'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [768, 292.0]
+    rotation: 0
+    state: disabled
+- name: qtgui_waterfall_sink_x_1
+  id: qtgui_waterfall_sink_x
+  parameters:
+    affinity: ''
+    alias: ''
+    alpha1: '1.0'
+    alpha10: '1.0'
+    alpha2: '1.0'
+    alpha3: '1.0'
+    alpha4: '1.0'
+    alpha5: '1.0'
+    alpha6: '1.0'
+    alpha7: '1.0'
+    alpha8: '1.0'
+    alpha9: '1.0'
+    axislabels: 'True'
+    bw: 1e6
+    color1: '0'
+    color10: '0'
+    color2: '0'
+    color3: '0'
+    color4: '0'
+    color5: '0'
+    color6: '0'
+    color7: '0'
+    color8: '0'
+    color9: '0'
+    comment: ''
+    fc: '0'
+    fftsize: '8192'
+    freqhalf: 'True'
+    grid: 'False'
+    gui_hint: ''
+    int_max: '10'
+    int_min: '-140'
+    label1: ''
+    label10: ''
+    label2: ''
+    label3: ''
+    label4: ''
+    label5: ''
+    label6: ''
+    label7: ''
+    label8: ''
+    label9: ''
+    legend: 'True'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    name: ''
+    nconnections: '1'
+    showports: 'False'
+    type: complex
+    update_time: '0.01'
+    wintype: window.WIN_RECTANGULAR
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [768, 372.0]
+    rotation: 0
+    state: true
+
+connections:
+- [analog_sig_source_x_0, '0', iio_pluto_sink_0, '0']
+- [band_reject_filter_0, '0', blocks_multiply_const_vxx_0, '0']
+- [band_reject_filter_0, '0', epy_block_0, '0']
+- [band_reject_filter_0, '0', qtgui_freq_sink_x_0, '0']
+- [band_reject_filter_0, '0', qtgui_waterfall_sink_x_1, '0']
+- [blocks_complex_to_real_0, '0', audio_sink_0, '0']
+- [blocks_multiply_const_vxx_0, '0', blocks_complex_to_real_0, '0']
+- [iio_pluto_source_0, '0', low_pass_filter_0, '0']
+- [low_pass_filter_0, '0', band_reject_filter_0, '0']
+
+metadata:
+  file_format: 1
