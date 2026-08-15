@@ -76,16 +76,16 @@ class doppler_velocity(gr.sync_block):
         # -----------------------------
 
         # Number of training cells on each side
-        self.training_cells = 20
+        self.training_cells = 24
 
         # Guard cells on each side
-        self.guard_cells = 3
+        self.guard_cells = 4
 
         # Desired probability of false alarm
-        self.pfa = 1e-4
+        self.pfa = 1e-5
 
         # Minimum separation between reported peaks
-        self.min_peak_separation_bins = 3
+        self.min_peak_separation_bins = 5
 
         # Maximum number of targets
         self.max_targets = int(max_targets)

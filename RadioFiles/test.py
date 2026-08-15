@@ -7,6 +7,7 @@
 # GNU Radio Python Flow Graph
 # Title: CWRADAR
 # Author: shreya
+# Description: Multi-target CW Doppler detector. The legacy single-target UDP block has been removed to prevent duplicate/ghost detections.
 # GNU Radio version: 3.10.1.1
 
 from packaging.version import Version as StrictVersion
@@ -168,7 +169,7 @@ class test(gr.top_block, Qt.QWidget):
         self.iio_pluto_sink_0.set_samplerate(samp_rate)
         self.iio_pluto_sink_0.set_attenuation(0, tx_attenuation)
         self.iio_pluto_sink_0.set_filter_params('Auto', '', 0, 0)
-        self.epy_block_1 = epy_block_1.doppler_velocity(samp_rate=48000, fft_size=8192, center_freq_hz=5500000000, print_every_n=5, noise_thresh_db=16, tone_offset_hz=500, max_velocity_mps=5, udp_ip='127.0.0.1', udp_port=5005, max_targets=5)
+        self.epy_block_1 = epy_block_1.doppler_velocity(samp_rate=48000, fft_size=8192, center_freq_hz=5500000000, print_every_n=5, noise_thresh_db=18, tone_offset_hz=500, max_velocity_mps=5, udp_ip='127.0.0.1', udp_port=5005, max_targets=5)
         self.blocks_multiply_const_vxx_0 = blocks.multiply_const_cc(audio_gain)
         self.blocks_complex_to_real_0 = blocks.complex_to_real(1)
         self.band_reject_filter_0 = filter.fir_filter_ccf(
