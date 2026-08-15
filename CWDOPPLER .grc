@@ -366,7 +366,7 @@ blocks:
     print_every_n: '5'
     samp_rate: '48000'
     tone_offset_hz: tone
-    udp_ip: '''192.168.0.127'''
+    udp_ip: '''127.0.0.1'''
     udp_port: '5005'
   states:
     _io_cache: ('doppler_velocity', 'doppler_velocity', [('samp_rate', '48000'), ('fft_size',

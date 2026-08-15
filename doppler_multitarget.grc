@@ -6,7 +6,8 @@ options:
     cmake_opt: ''
     comment: ''
     copyright: ''
-    description: ''
+    description: Multi-target CW Doppler detector. The legacy single-target UDP block
+      has been removed to prevent duplicate/ghost detections.
     gen_cmake: 'On'
     gen_linking: dynamic
     generate_options: qt_gui
@@ -294,94 +295,6 @@ blocks:
     coordinate: [1088, 360.0]
     rotation: 0
     state: disabled
-- name: epy_block_0
-  id: epy_block
-  parameters:
-    _source_code: "import numpy as np\nfrom gnuradio import gr\nimport time\nimport\
-      \ socket\nimport struct\n\n\nclass doppler_velocity(gr.sync_block):\n    \"\"\
-      \"\n    Doppler Velocity Estimator with direct UDP output.\n    Sends [doppler,\
-      \ velocity, dBFS] as a 12-byte UDP packet\n    directly, bypassing UDP Sink\
-      \ entirely.\n    \"\"\"\n\n    def __init__(self,\n                 samp_rate=48000,\n\
-      \                 fft_size=8192,\n                 center_freq_hz=5.5e9,\n \
-      \                print_every_n=5,\n                 noise_thresh_db=10.0,\n\
-      \                 tone_offset_hz=500.0,\n                 max_velocity_mps=10.0,\n\
-      \                 udp_ip=\"127.0.0.1\",\n                 udp_port=5005):\n\n\
-      \        gr.sync_block.__init__(\n            self,\n            name=\"doppler_velocity\"\
-      ,\n            in_sig=[np.complex64],\n            out_sig=None   # no stream\
-      \ output needed anymore\n        )\n\n        self.samp_rate = samp_rate\n \
-      \       self.fft_size = fft_size\n\n        self.c = 3e8\n        self.wavelength\
-      \ = self.c / center_freq_hz\n\n        self.threshold = noise_thresh_db\n  \
-      \      self.print_every_n = print_every_n\n        self.tone_offset = tone_offset_hz\n\
-      \        self.max_velocity = max_velocity_mps\n\n        self.bin_resolution\
-      \ = self.samp_rate / self.fft_size\n\n        self.window = np.hanning(self.fft_size)\n\
-      \n        self.buffer = np.zeros(self.fft_size, dtype=np.complex64)\n\n    \
-      \    self.buf_idx = 0\n        self.call_count = 0\n\n        self.last_doppler\
-      \ = 0.0\n        self.last_velocity = 0.0\n        self.last_dbfs = -120.0\n\
-      \n        self.last_print = time.time()\n\n        # --- UDP setup ---\n   \
-      \     self.udp_ip = udp_ip\n        self.udp_port = udp_port\n        self.sock\
-      \ = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\n\n    def work(self, input_items,\
-      \ output_items):\n\n        samples = input_items[0]\n\n        rms = np.sqrt(np.mean(np.abs(samples)**2))\n\
-      \        dbfs = 20 * np.log10(rms + 1e-12)\n        self.last_dbfs = dbfs\n\n\
-      \        for sample in samples:\n            self.buffer[self.buf_idx] = sample\n\
-      \            self.buf_idx += 1\n\n            if self.buf_idx >= self.fft_size:\n\
-      \                self.process_block(self.buffer)\n                self.buf_idx\
-      \ = 0\n\n        # Send one UDP packet per work() call\n        packet = struct.pack(\"\
-      <fff\",\n                              self.last_doppler,\n                \
-      \              self.last_velocity,\n                              self.last_dbfs)\n\
-      \        try:\n            self.sock.sendto(packet, (self.udp_ip, self.udp_port))\n\
-      \        except OSError as e:\n            print(f\"UDP send failed: {e}\")\n\
-      \n        if time.time() - self.last_print >= 1:\n            print(\n     \
-      \           f\"Signal Level = {self.last_dbfs:.2f} dBFS | \"\n             \
-      \   f\"Doppler = {self.last_doppler:.2f} Hz | \"\n                f\"Velocity\
-      \ = {self.last_velocity:.3f} m/s\"\n            )\n            self.last_print\
-      \ = time.time()\n\n        return len(samples)\n\n    def process_block(self,\
-      \ block):\n        spectrum = np.fft.fftshift(np.fft.fft(block * self.window))\n\
-      \        magnitude = np.abs(spectrum)\n        mag_db = 20 * np.log10(magnitude\
-      \ + 1e-12)\n        center = self.fft_size // 2\n\n        max_doppler_hz =\
-      \ 2 * self.max_velocity / self.wavelength\n        max_doppler_bins = int(np.ceil(max_doppler_hz\
-      \ / self.bin_resolution))\n        tone_bin = center + int(round(self.tone_offset\
-      \ / self.bin_resolution))\n        lo = max(0, tone_bin - max_doppler_bins)\n\
-      \        hi = min(self.fft_size, tone_bin + max_doppler_bins + 1)\n\n      \
-      \  search_region = mag_db[lo:hi]\n        noise_floor = np.median(mag_db)\n\
-      \        local_peak = np.argmax(search_region)\n        peak_bin = lo + local_peak\n\
-      \        peak_db = mag_db[peak_bin]\n\n        if (peak_db - noise_floor) <\
-      \ self.threshold:\n            return\n\n        peak = float(peak_bin)\n  \
-      \      if 1 <= peak_bin < self.fft_size - 1:\n            a = mag_db[peak_bin\
-      \ - 1]\n            b = mag_db[peak_bin]\n            c = mag_db[peak_bin +\
-      \ 1]\n            denom = a - 2 * b + c\n            if abs(denom) > 1e-12:\n\
-      \                peak += 0.5 * (a - c) / denom\n\n        raw_freq = (peak -\
-      \ center) * self.bin_resolution\n        doppler_freq = raw_freq - self.tone_offset\n\
-      \        velocity = doppler_freq * self.wavelength / 2.0\n\n        self.last_doppler\
-      \ = doppler_freq\n        self.last_velocity = velocity\n        self.call_count\
-      \ += 1\n"
-    affinity: ''
-    alias: ''
-    center_freq_hz: 5.5e9
-    comment: ''
-    fft_size: '8192'
-    max_velocity_mps: '5'
-    maxoutbuf: '0'
-    minoutbuf: '0'
-    noise_thresh_db: '16'
-    print_every_n: '5'
-    samp_rate: '48000'
-    tone_offset_hz: tone
-    udp_ip: '''192.168.0.11'''
-    udp_port: '5005'
-  states:
-    _io_cache: ('doppler_velocity', 'doppler_velocity', [('samp_rate', '48000'), ('fft_size',
-      '8192'), ('center_freq_hz', '5500000000.0'), ('print_every_n', '5'), ('noise_thresh_db',
-      '10.0'), ('tone_offset_hz', '500.0'), ('max_velocity_mps', '10.0'), ('udp_ip',
-      "'127.0.0.1'"), ('udp_port', '5005')], [('0', 'complex', 1)], [], '\n    Doppler
-      Velocity Estimator with direct UDP output.\n    Sends [doppler, velocity, dBFS]
-      as a 12-byte UDP packet\n    directly, bypassing UDP Sink entirely.\n    ',
-      ['fft_size', 'print_every_n', 'samp_rate', 'udp_ip', 'udp_port'])
-    bus_sink: false
-    bus_source: false
-    bus_structure: null
-    coordinate: [984, 172.0]
-    rotation: 0
-    state: disabled
 - name: epy_block_1
   id: epy_block
   parameters:
@@ -411,10 +324,10 @@ blocks:
       \    self.bin_resolution = self.samp_rate / self.fft_size\n\n        # -----------------------------\n\
       \        # Multi-target CFAR settings\n        # -----------------------------\n\
       \n        # Number of training cells on each side\n        self.training_cells\
-      \ = 20\n\n        # Guard cells on each side\n        self.guard_cells = 3\n\
-      \n        # Desired probability of false alarm\n        self.pfa = 1e-4\n\n\
+      \ = 24\n\n        # Guard cells on each side\n        self.guard_cells = 4\n\
+      \n        # Desired probability of false alarm\n        self.pfa = 1e-5\n\n\
       \        # Minimum separation between reported peaks\n        self.min_peak_separation_bins\
-      \ = 3\n\n        # Maximum number of targets\n        self.max_targets = int(max_targets)\n\
+      \ = 5\n\n        # Maximum number of targets\n        self.max_targets = int(max_targets)\n\
       \n        # -----------------------------\n        # FFT window\n        # -----------------------------\n\
       \        self.window = np.hanning(self.fft_size)\n\n        # -----------------------------\n\
       \        # Input buffer\n        # -----------------------------\n        self.buffer\
@@ -571,7 +484,7 @@ blocks:
     max_velocity_mps: '5'
     maxoutbuf: '0'
     minoutbuf: '0'
-    noise_thresh_db: '16'
+    noise_thresh_db: '18'
     print_every_n: '5'
     samp_rate: '48000'
     tone_offset_hz: '500'
@@ -823,7 +736,6 @@ blocks:
 connections:
 - [analog_sig_source_x_0, '0', iio_pluto_sink_0, '0']
 - [band_reject_filter_0, '0', blocks_multiply_const_vxx_0, '0']
-- [band_reject_filter_0, '0', epy_block_0, '0']
 - [band_reject_filter_0, '0', epy_block_1, '0']
 - [band_reject_filter_0, '0', qtgui_freq_sink_x_0, '0']
 - [band_reject_filter_0, '0', qtgui_waterfall_sink_x_1, '0']

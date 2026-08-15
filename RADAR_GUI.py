@@ -7,25 +7,28 @@
 
 WHAT IT DOES
 ------------
-- Listens for UDP packets on a configurable IP:Port.
-- Parses lines of the form:
-    Signal Level = -51.38 dBFS | Doppler = -9.18 Hz | Velocity = -0.250 m/s
-- Draws an animated radar sector (custom start/end angle, 0-360 deg) with
-  a continuously sweeping beam.
+- Listens for binary UDP vectors on a configurable IP:Port (see the
+  UdpReceiver class for the exact wire format).
+- Draws a static radar sector (custom start/end angle, 0-360 deg) --
+  there is NO sweeping/rotating beam animation.
 - Nothing is shown on the scope until the received Signal Level (dBFS)
   is GREATER than the user-set threshold.
-- When a detection crosses the threshold, a blinking red triangular
-  "blip" is drawn at the current sweep angle.
-- The blip's distance from the origin (radar centre) is driven by the
-  Velocity value:
-       velocity < 0  -> blip sits CLOSER to the origin (approaching)
-       velocity > 0  -> blip sits FARTHER from the origin (receding)
+- When a detection crosses the threshold, a single blinking red
+  triangular target is drawn on a FIXED bearing at the middle of the
+  configured sector. It never moves side to side.
+- The target's distance from the origin (radar centre) is driven by
+  the Velocity value, mapped through a user-configurable min/max range:
+       velocity == velocity_min  -> target sits at the ORIGIN (closest)
+       velocity == velocity_max  -> target sits at the CIRCUMFERENCE (farthest)
+  So it only ever moves radially, front and back along that bearing.
+- The target fades out quickly once detections stop (configurable
+  fade-out time), and re-brightens instantly if a new detection arrives.
 - A collapsible settings panel (gear button) lets you set:
        * Listen IP / Port (UDP "dial" + Connect/Disconnect)
        * Detection threshold (dBFS)
        * Sector start / end angle (0-360 deg, custom)
-       * Max range (m) / Velocity scale (m/s for full-scale deflection)
-       * Sweep speed, blip lifetime / blink speed
+       * Max range (m) / Velocity min & max (defines near <-> far mapping)
+       * Blink rate, fade-out time
 
 INSTALL (Raspberry Pi OS / Debian)
 -----------------------------------
@@ -158,17 +161,15 @@ class RadarWidget(QWidget):
         self.start_angle = 45.0        # degrees, math convention (0 = +X axis, CCW)
         self.end_angle = 135.0
         self.max_range_m = 50.0        # full-scale range in meters (label only)
-        self.velocity_scale = 5.0      # m/s that maps to full-scale radial deflection
-        self.sweep_speed = 60.0        # deg / second
+        self.velocity_min = -5.0       # m/s that maps to the origin (radius 0)
+        self.velocity_max = 5.0        # m/s that maps to the circumference (radius max)
         self.blink_hz = 3.0            # blink frequency of a live target
-        self.blip_lifetime = 3.0       # seconds a blip stays on screen after last hit
+        self.blip_lifetime = 0.8       # seconds a blip stays on screen after last hit (fast fade)
 
         # ---- runtime state --------------------------------------------------------
-        self.sweep_angle = self.start_angle
-        self.sweep_dir = 1             # +1 / -1  (ping-pong across the sector)
-        self.trail = []                # list of past sweep angles for fading trail
+        self.center_angle = (self.start_angle + self.end_angle) / 2.0  # static bearing
         # single tracked target -- None when nothing is above threshold.
-        # dict: angle, radius_frac, velocity, signal, t0 (first seen), t_last (last update)
+        # dict: radius_frac, velocity, signal, t0 (first seen), t_last (last update)
         self.target = None
 
         self.threshold_dbfs = -50.0
@@ -178,8 +179,7 @@ class RadarWidget(QWidget):
         self.last_velocity = None
         self.connected = False
 
-        # ---- animation timer --------------------------------------------------------
-        self._last_tick = time.monotonic()
+        # ---- animation timer (drives blink/fade redraw only - no sweep) --------------
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._tick)
         self.timer.start(30)   # ~33 FPS
@@ -192,9 +192,7 @@ class RadarWidget(QWidget):
             end_deg += 360
         self.start_angle = start_deg
         self.end_angle = end_deg
-        self.sweep_angle = start_deg
-        self.sweep_dir = 1
-        self.trail.clear()
+        self.center_angle = (start_deg + end_deg) / 2.0
 
     def set_threshold(self, value):
         self.threshold_dbfs = value
@@ -202,17 +200,17 @@ class RadarWidget(QWidget):
     def set_max_range(self, value):
         self.max_range_m = max(1.0, value)
 
-    def set_velocity_scale(self, value):
-        self.velocity_scale = max(0.1, value)
-
-    def set_sweep_speed(self, deg_per_sec):
-        self.sweep_speed = max(1.0, deg_per_sec)
+    def set_velocity_range(self, vmin, vmax):
+        if vmax <= vmin:
+            vmax = vmin + 0.1
+        self.velocity_min = vmin
+        self.velocity_max = vmax
 
     def set_blink_hz(self, hz):
         self.blink_hz = max(0.2, hz)
 
     def set_blip_lifetime(self, seconds):
-        self.blip_lifetime = max(0.3, seconds)
+        self.blip_lifetime = max(0.15, seconds)
 
     def set_connected(self, is_connected):
         self.connected = is_connected
@@ -220,12 +218,13 @@ class RadarWidget(QWidget):
     def feed_data(self, signal_dbfs, doppler_hz, velocity_ms):
         """Called whenever a new UDP sample arrives.
 
-        Only ONE target is ever tracked. As long as consecutive samples
-        stay above the threshold, the SAME triangle is updated in place
-        (its angle follows the sweep, its radius follows velocity) --
-        it does not spawn a new blip per packet. If the signal drops
-        below threshold the target starts fading and is cleared after
-        `blip_lifetime` seconds with no further detections.
+        Only ONE target is ever tracked, and it stays at the fixed
+        bearing in the middle of the configured sector -- it never
+        moves side to side with a scan animation. It only moves
+        radially (front/back, origin <-> circumference) based on the
+        velocity value, mapped through the user-configured velocity
+        min/max range. If the signal drops below threshold the target
+        fades out quickly and is cleared after `blip_lifetime` seconds.
         """
         self.last_signal = signal_dbfs
         self.last_doppler = doppler_hz
@@ -237,7 +236,6 @@ class RadarWidget(QWidget):
             if self.target is None:
                 self.target = {"t0": now}
             self.target.update({
-                "angle": self.sweep_angle,
                 "radius_frac": frac,
                 "velocity": velocity_ms,
                 "signal": signal_dbfs,
@@ -246,32 +244,12 @@ class RadarWidget(QWidget):
 
     # ---------------------------------------------------------------- internals
     def _velocity_to_radius_frac(self, velocity_ms):
-        """Negative velocity -> near centre, positive velocity -> near edge."""
-        mid = 0.5
-        frac = mid + (velocity_ms / (2.0 * self.velocity_scale))
-        return max(0.06, min(0.98, frac))
+        """velocity_min -> origin (frac ~0), velocity_max -> circumference (frac ~1)."""
+        frac = (velocity_ms - self.velocity_min) / (self.velocity_max - self.velocity_min)
+        return max(0.02, min(0.98, frac))
 
     def _tick(self):
         now = time.monotonic()
-        dt = now - self._last_tick
-        self._last_tick = now
-
-        # advance sweep (ping-pong across the sector)
-        span = self.end_angle - self.start_angle
-        if span <= 0:
-            span = 360
-        step = self.sweep_speed * dt
-        self.sweep_angle += self.sweep_dir * step
-        if self.sweep_angle >= self.end_angle:
-            self.sweep_angle = self.end_angle
-            self.sweep_dir = -1
-        elif self.sweep_angle <= self.start_angle:
-            self.sweep_angle = self.start_angle
-            self.sweep_dir = 1
-
-        self.trail.append(self.sweep_angle)
-        if len(self.trail) > 14:
-            self.trail.pop(0)
 
         # expire the target if it hasn't been refreshed in a while
         if self.target and (now - self.target["t_last"]) > self.blip_lifetime:
@@ -288,21 +266,59 @@ class RadarWidget(QWidget):
         painter.fillRect(0, 0, w, h, QColor(6, 12, 10))
 
         margin = 24
-        avail = min(w, h) - 2 * margin
-        radius_px = max(40, avail / 2)
-
-        # origin placed so the whole sector (whatever angles chosen) fits nicely
-        cx = w / 2.0
-        cy = h / 2.0 + radius_px * 0.25
-        origin = QPointF(cx, cy)
+        origin, radius_px = self._compute_origin_and_radius(w, h, margin)
 
         self._draw_sector_background(painter, origin, radius_px)
         self._draw_range_rings(painter, origin, radius_px)
         self._draw_angle_spokes(painter, origin, radius_px)
-        self._draw_sweep(painter, origin, radius_px)
+        self._draw_center_bearing(painter, origin, radius_px)
         self._draw_target(painter, origin, radius_px)
         self._draw_origin_marker(painter, origin)
         self._draw_hud(painter)
+
+    def _compute_origin_and_radius(self, w, h, margin):
+        """Work out where the origin must sit, and how big the radius can
+        be, so that the WHOLE sector wedge (whatever start/end angle the
+        user picked - including a full 0-360 circle) fits inside the
+        widget without being clipped on any side."""
+        avail_w = max(10.0, w - 2 * margin)
+        avail_h = max(10.0, h - 2 * margin)
+
+        # Candidate angles where the wedge can reach its extreme x/y:
+        # the two edges, plus every 90-degree axis crossing in between
+        # (that's where cos/sin hit their min/max of -1 or 1).
+        candidates = [self.start_angle, self.end_angle]
+        a = math.ceil(self.start_angle / 90.0) * 90.0
+        while a <= self.end_angle:
+            candidates.append(a)
+            a += 90.0
+
+        xs = [0.0]   # origin point itself is always part of the wedge
+        ys = [0.0]
+        for ang in candidates:
+            rad = math.radians(ang)
+            xs.append(math.cos(rad))
+            ys.append(-math.sin(rad))   # Qt y-axis points down
+
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+
+        span_x = max(1e-6, max_x - min_x)
+        span_y = max(1e-6, max_y - min_y)
+
+        radius_px = min(avail_w / span_x, avail_h / span_y)
+        radius_px = max(30.0, radius_px)
+
+        # centre the resulting bounding box inside the available area
+        box_w = radius_px * span_x
+        box_h = radius_px * span_y
+        left = margin + (avail_w - box_w) / 2.0
+        top = margin + (avail_h - box_h) / 2.0
+
+        origin_x = left - radius_px * min_x
+        origin_y = top - radius_px * min_y
+
+        return QPointF(origin_x, origin_y), radius_px
 
     def _to_point(self, origin, radius_px, angle_deg):
         rad = math.radians(angle_deg)
@@ -355,14 +371,12 @@ class RadarWidget(QWidget):
         painter.drawLine(origin, self._to_point(origin, radius_px, self.start_angle))
         painter.drawLine(origin, self._to_point(origin, radius_px, self.end_angle))
 
-    def _draw_sweep(self, painter, origin, radius_px):
-        n = len(self.trail)
-        for i, ang in enumerate(self.trail):
-            alpha = int(200 * (i + 1) / max(1, n))
-            pen = QPen(QColor(0, 255, 90, alpha), 3 if i == n - 1 else 1.5)
-            painter.setPen(pen)
-            p = self._to_point(origin, radius_px, ang)
-            painter.drawLine(origin, p)
+    def _draw_center_bearing(self, painter, origin, radius_px):
+        """A static line marking the fixed bearing (middle of the sector)
+        that the target lives on - this does NOT animate/sweep."""
+        p = self._to_point(origin, radius_px, self.center_angle)
+        painter.setPen(QPen(QColor(0, 255, 200, 130), 1, Qt.DashDotLine))
+        painter.drawLine(origin, p)
 
     def _draw_origin_marker(self, painter, origin):
         painter.setPen(QPen(QColor(0, 255, 150), 1))
@@ -383,16 +397,20 @@ class RadarWidget(QWidget):
             self.target = None
             return
 
+        # fast, non-linear fade: stays bright briefly then drops off quickly
+        fade = life_frac ** 2.2
+
         blink_phase = now - b["t0"]
         blink = 0.5 + 0.5 * math.sin(2 * math.pi * self.blink_hz * blink_phase)
-        alpha = int(255 * life_frac * (0.35 + 0.65 * blink))
+        alpha = int(255 * fade * (0.35 + 0.65 * blink))
         alpha = max(0, min(255, alpha))
 
         r = radius_px * b["radius_frac"]
-        center = self._to_point(origin, r, b["angle"])
+        # target stays on the static centre bearing - only moves front/back
+        center = self._to_point(origin, r, self.center_angle)
 
-        size = 12 + 4 * life_frac
-        tri = self._triangle(center, size, b["angle"])
+        size = 12 + 4 * fade
+        tri = self._triangle(center, size, self.center_angle)
 
         painter.setPen(QPen(QColor(255, 40, 40, alpha), 1))
         painter.setBrush(QBrush(QColor(255, 30, 30, alpha)))
@@ -523,29 +541,37 @@ class SettingsPanel(QFrame):
         self.range_spin.setValue(50)
         self.range_spin.setSuffix(" m")
 
-        self.vel_scale_spin = QDoubleSpinBox()
-        self.vel_scale_spin.setRange(0.1, 1000)
-        self.vel_scale_spin.setValue(5.0)
-        self.vel_scale_spin.setSuffix(" m/s")
+        # Velocity range: min -> origin (radius 0), max -> circumference (radius max)
+        self.vel_min_spin = QDoubleSpinBox()
+        self.vel_min_spin.setRange(-1000.0, 1000.0)
+        self.vel_min_spin.setDecimals(2)
+        self.vel_min_spin.setValue(-5.0)
+        self.vel_min_spin.setSuffix(" m/s")
+        self.vel_min_spin.setToolTip("Velocity value that maps to the ORIGIN (closest)")
 
-        self.sweep_speed_slider = QSlider(Qt.Horizontal)
-        self.sweep_speed_slider.setRange(5, 300)
-        self.sweep_speed_slider.setValue(60)
+        self.vel_max_spin = QDoubleSpinBox()
+        self.vel_max_spin.setRange(-1000.0, 1000.0)
+        self.vel_max_spin.setDecimals(2)
+        self.vel_max_spin.setValue(5.0)
+        self.vel_max_spin.setSuffix(" m/s")
+        self.vel_max_spin.setToolTip("Velocity value that maps to the CIRCUMFERENCE (farthest)")
 
         self.blink_slider = QSlider(Qt.Horizontal)
         self.blink_slider.setRange(1, 10)
         self.blink_slider.setValue(3)
 
         self.lifetime_spin = QDoubleSpinBox()
-        self.lifetime_spin.setRange(0.5, 30.0)
-        self.lifetime_spin.setValue(3.0)
+        self.lifetime_spin.setRange(0.15, 10.0)
+        self.lifetime_spin.setSingleStep(0.1)
+        self.lifetime_spin.setValue(0.8)
         self.lifetime_spin.setSuffix(" s")
+        self.lifetime_spin.setToolTip("How long the target takes to fade out after last detection")
 
         scale_form.addRow("Max range:", self.range_spin)
-        scale_form.addRow("Velocity full-scale:", self.vel_scale_spin)
-        scale_form.addRow("Sweep speed (deg/s):", self.sweep_speed_slider)
+        scale_form.addRow("Velocity min (near):", self.vel_min_spin)
+        scale_form.addRow("Velocity max (far):", self.vel_max_spin)
         scale_form.addRow("Blink rate (Hz):", self.blink_slider)
-        scale_form.addRow("Blip hold time:", self.lifetime_spin)
+        scale_form.addRow("Fade-out time:", self.lifetime_spin)
         scale_box.setLayout(scale_form)
 
         self.apply_btn = QPushButton("Apply Settings")
@@ -610,8 +636,6 @@ class MainWindow(QMainWindow):
         self.settings.connect_btn.clicked.connect(self._toggle_connection)
         self.settings.apply_btn.clicked.connect(self._apply_settings)
         self.settings.threshold_spin.valueChanged.connect(self.radar.set_threshold)
-        self.settings.sweep_speed_slider.valueChanged.connect(
-            lambda v: self.radar.set_sweep_speed(float(v)))
         self.settings.blink_slider.valueChanged.connect(
             lambda v: self.radar.set_blink_hz(float(v)))
         self.settings.lifetime_spin.valueChanged.connect(self.radar.set_blip_lifetime)
@@ -628,8 +652,7 @@ class MainWindow(QMainWindow):
         self.radar.set_sector(s.start_spin.value(), s.end_spin.value())
         self.radar.set_threshold(s.threshold_spin.value())
         self.radar.set_max_range(s.range_spin.value())
-        self.radar.set_velocity_scale(s.vel_scale_spin.value())
-        self.radar.set_sweep_speed(float(s.sweep_speed_slider.value()))
+        self.radar.set_velocity_range(s.vel_min_spin.value(), s.vel_max_spin.value())
         self.radar.set_blink_hz(float(s.blink_slider.value()))
         self.radar.set_blip_lifetime(s.lifetime_spin.value())
 
